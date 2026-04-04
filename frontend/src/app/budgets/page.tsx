@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore, useDataStore } from '@/stores';
 import { api } from '@/lib/api';
+import { showError, showSuccess } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -58,8 +59,9 @@ export default function BudgetsPage() {
       fetchBudgets();
       setShowForm(false);
       setFormData({ category: '', limitAmount: '', period: 'MONTHLY' });
+      showSuccess('Presupuesto creado');
     } catch (error: any) {
-      alert('Error: ' + error.message);
+      showError(error.message);
     }
   };
 
@@ -68,8 +70,9 @@ export default function BudgetsPage() {
     try {
       await api.deleteBudget(id);
       fetchBudgets();
+      showSuccess('Presupuesto eliminado');
     } catch (error: any) {
-      alert('Error: ' + error.message);
+      showError(error.message);
     }
   };
 

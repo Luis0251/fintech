@@ -490,6 +490,59 @@ if (response.status === 401) {
 
 ---
 
+## 8. Manejo de Errores Global
+
+### Problema
+
+Los errores del backend no tenían un formato consistente, y el frontend usaba `alert()` nativo del navegador, lo cual da una mala experiencia de usuario.
+
+### Solución Implementada
+
+#### Backend: Global Exception Filter
+
+```typescript
+// backend/src/common/global-exception.filter.ts
+@Catch()
+export class GlobalExceptionFilter implements ExceptionFilter {
+  catch(exception: unknown, host: ArgumentsHost) {
+    // Maneja HttpException, Error, y errores genéricos
+    // Formato consistente: { statusCode, message, error, timestamp, path, method }
+    // Logging estructurado: Logger.error para 5xx, Logger.warn para demás
+    // En producción, oculta detalles de errores 500
+  }
+}
+```
+
+#### Frontend: Toast Notifications
+
+```typescript
+// frontend/src/lib/toast.ts
+export const showError = (message: string) => {
+  toast.error(message, { duration: 4000, dismissible: true });
+};
+
+export const showSuccess = (message: string) => {
+  toast.success(message, { duration: 3000, dismissible: true });
+};
+```
+
+**Librería**: [Sonner](https://sonner.emilkowalski.ski/) - Toast notifications para React
+
+**Archivos modificados**:
+- `backend/src/common/global-exception.filter.ts` (nuevo)
+- `backend/src/main.ts` - registrado filtro global
+- `frontend/src/app/layout.tsx` - `<Toaster />`
+- `frontend/src/lib/toast.ts` (nuevo)
+- Todas las páginas: `accounts`, `budgets`, `goals`, `insights`
+
+**Beneficios**:
+- ✅ Errores con formato JSON consistente
+- ✅ Logging estructurado en backend
+- ✅ Toasts visuales agradables en frontend
+- ✅ Experiencia de usuario mejorada
+
+---
+
 ## 8. Puntos de Mejora (Actualizado)
 
 ### Alta Prioridad
@@ -498,7 +551,8 @@ if (response.status === 401) {
 |---|--------|-----------------|--------|
 | 1 | **SSE** | Actualización en tiempo real | ✅ Implementado |
 | 2 | **Unit Tests** | No hay cobertura de tests | 🚧 Pendiente |
-| 3 | **Error Handling Global** | Los errores 500 no tienen manejo granular | 🚧 Pendiente |
+| 3 | **Error Handling Global** | Los errores 500 no tienen manejo granular | ✅ Implementado |
+| 4 | **Toast Notifications** | Alerts nativos del navegador | ✅ Implementado |
 
 ### Media Prioridad
 

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore, useDataStore } from '@/stores';
 import { api } from '@/lib/api';
+import { showError, showSuccess } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Lightbulb, AlertTriangle, TrendingUp, Award, RefreshCw, CheckCircle } from 'lucide-react';
@@ -31,8 +32,9 @@ export default function InsightsPage() {
     try {
       await api.generateInsights();
       fetchInsights();
+      showSuccess('Insights generados');
     } catch (error: any) {
-      alert('Error: ' + error.message);
+      showError(error.message);
     }
     setIsGenerating(false);
   };

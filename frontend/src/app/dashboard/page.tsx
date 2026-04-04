@@ -265,7 +265,7 @@ export default function DashboardPage() {
                     dataKey="amount"
                     nameKey="category"
                   >
-                    {categoryData.map((entry, index) => (
+                    {categoryData.map((entry: { category: string; amount: number }, index: number) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>

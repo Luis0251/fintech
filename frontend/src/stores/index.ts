@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { api, API_BASE_URL } from '@/lib/api';
+import type { User, Account, Transaction, Budget, Goal, Insight, TransactionStats, BalanceInfo } from '@/types';
 
 interface AuthState {
   user: User | null;

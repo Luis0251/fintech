@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
+import { GlobalExceptionFilter } from './common/global-exception.filter';
 import { json } from 'express';
 
 async function bootstrap() {
@@ -34,6 +35,9 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
     }),
   );
+
+  // Global exception filter
+  app.useGlobalFilters(new GlobalExceptionFilter());
   
   const port = process.env.PORT || 4000;
   await app.listen(port);

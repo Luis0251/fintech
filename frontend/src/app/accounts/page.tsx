@@ -4,12 +4,13 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore, useDataStore } from '@/stores';
 import { api } from '@/lib/api';
+import { showError, showSuccess } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Plus, Wallet, CreditCard, PiggyBank, Banknote, Trash2, DollarSign } from 'lucide-react';
+import { ArrowLeft, Plus, Wallet, CreditCard, PiggyBank, Banknote, Trash2, DollarSign, Pencil } from 'lucide-react';
 import Link from 'next/link';
 
 const ACCOUNT_TYPES = [
@@ -24,11 +25,12 @@ export default function AccountsPage() {
   const router = useRouter();
   
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     type: 'CHECKING',
     balance: '',
-    currency: 'ARS',
+    currency: 'COP',
   });
 
   useEffect(() => {
@@ -43,32 +45,54 @@ export default function AccountsPage() {
     initialize();
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      await api.createAccount({
-        name: formData.name,
-        type: formData.type,
-        balance: formData.balance ? parseFloat(formData.balance) : 0,
-        currency: formData.currency,
-      });
-      fetchAccounts();
-      fetchBalance();
-      setShowForm(false);
-      setFormData({ name: '', type: 'CHECKING', balance: '', currency: 'ARS' });
-    } catch (error: any) {
-      alert('Error: ' + error.message);
-    }
-  };
-
   const handleDelete = async (id: string) => {
     if (!confirm('¿Eliminar esta cuenta? Se eliminarán todas las transacciones asociadas.')) return;
     try {
       await api.deleteAccount(id);
       fetchAccounts();
       fetchBalance();
+      showSuccess('Cuenta eliminada');
     } catch (error: any) {
-      alert('Error: ' + error.message);
+      showError(error.message);
+    }
+  };
+
+  const handleEdit = (account: any) => {
+    setEditingId(account.id);
+    setFormData({
+      name: account.name,
+      type: account.type,
+      balance: account.balance?.toString() || '',
+      currency: account.currency || 'COP',
+    });
+    setShowForm(true);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      if (editingId) {
+        await api.updateAccount(editingId, {
+          name: formData.name,
+          balance: formData.balance ? parseFloat(formData.balance) : 0,
+        });
+        showSuccess('Cuenta actualizada');
+      } else {
+        await api.createAccount({
+          name: formData.name,
+          type: formData.type,
+          balance: formData.balance ? parseFloat(formData.balance) : 0,
+          currency: formData.currency,
+        });
+        showSuccess('Cuenta creada');
+      }
+      fetchAccounts();
+      fetchBalance();
+      setShowForm(false);
+      setEditingId(null);
+      setFormData({ name: '', type: 'CHECKING', balance: '', currency: 'COP' });
+    } catch (error: any) {
+      showError(error.message);
     }
   };
 
@@ -118,11 +142,11 @@ export default function AccountsPage() {
           </CardContent>
         </Card>
 
-        {/* New Account Form */}
+        {/* New Account Form / Edit Form */}
         {showForm && (
           <Card className="mb-6 border-primary">
             <CardHeader>
-              <CardTitle>Nueva Cuenta</CardTitle>
+              <CardTitle>{editingId ? 'Editar Cuenta' : 'Nueva Cuenta'}</CardTitle>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-4">
@@ -136,21 +160,23 @@ export default function AccountsPage() {
                       required
                     />
                   </div>
+                  {!editingId && (
+                    <div>
+                      <Label>Tipo de Cuenta</Label>
+                      <Select value={formData.type} onValueChange={(v) => setFormData({ ...formData, type: v })}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {ACCOUNT_TYPES.map((type) => (
+                            <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                   <div>
-                    <Label>Tipo de Cuenta</Label>
-                    <Select value={formData.type} onValueChange={(v) => setFormData({ ...formData, type: v })}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {ACCOUNT_TYPES.map((type) => (
-                          <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Saldo Inicial</Label>
+                    <Label>Saldo{editingId ? ' Actual' : ' Inicial'}</Label>
                     <Input
                       type="number"
                       value={formData.balance}
@@ -158,23 +184,25 @@ export default function AccountsPage() {
                       placeholder="0.00"
                     />
                   </div>
-                  <div>
-                    <Label>Moneda</Label>
-                    <Select value={formData.currency} onValueChange={(v) => setFormData({ ...formData, currency: v })}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ARS">Peso Argentino (ARS)</SelectItem>
-                        <SelectItem value="USD">Dólar (USD)</SelectItem>
-                        <SelectItem value="EUR">Euro (EUR)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {!editingId && (
+                    <div>
+                      <Label>Moneda</Label>
+                      <Select value={formData.currency} onValueChange={(v) => setFormData({ ...formData, currency: v })}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="COP">Peso Colombiano (COP)</SelectItem>
+                          <SelectItem value="USD">Dólar (USD)</SelectItem>
+                          <SelectItem value="EUR">Euro (EUR)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                 </div>
                 <div className="flex gap-2">
-                  <Button type="submit">Crear Cuenta</Button>
-                  <Button type="button" variant="outline" onClick={() => setShowForm(false)}>Cancelar</Button>
+                  <Button type="submit">{editingId ? 'Guardar Cambios' : 'Crear Cuenta'}</Button>
+                  <Button type="button" variant="outline" onClick={() => { setShowForm(false); setEditingId(null); setFormData({ name: '', type: 'CHECKING', balance: '', currency: 'ARS' }); }}>Cancelar</Button>
                 </div>
               </form>
             </CardContent>
@@ -205,7 +233,15 @@ export default function AccountsPage() {
                     <p className="text-xs text-muted-foreground">{account.currency}</p>
                   </div>
                 </div>
-                <div className="flex justify-end mt-4">
+                <div className="flex justify-end mt-4 gap-2">
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    className="text-muted-foreground hover:text-primary"
+                    onClick={() => handleEdit(account)}
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </Button>
                   <Button 
                     variant="ghost" 
                     size="icon" 

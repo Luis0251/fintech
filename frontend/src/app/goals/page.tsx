@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore, useDataStore } from '@/stores';
 import { api } from '@/lib/api';
+import { showError, showSuccess } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -55,8 +56,9 @@ export default function GoalsPage() {
       fetchGoals();
       setShowForm(false);
       setFormData({ name: '', targetAmount: '', currentAmount: '', deadline: '', description: '' });
+      showSuccess('Meta creada');
     } catch (error: any) {
-      alert('Error: ' + error.message);
+      showError(error.message);
     }
   };
 
@@ -68,8 +70,9 @@ export default function GoalsPage() {
       fetchAccounts();
       setContributeGoal(null);
       setContributeAmount('');
+      showSuccess('Contribución agregada');
     } catch (error: any) {
-      alert('Error: ' + error.message);
+      showError(error.message);
     }
   };
 
@@ -78,8 +81,9 @@ export default function GoalsPage() {
     try {
       await api.deleteGoal(id);
       fetchGoals();
+      showSuccess('Meta eliminada');
     } catch (error: any) {
-      alert('Error: ' + error.message);
+      showError(error.message);
     }
   };
 
