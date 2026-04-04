@@ -33,6 +33,7 @@
 | Insights + Chat IA | ✅ Completo | Google Gemini integrado |
 | Dashboard | ✅ Completo | Gráficos con Recharts |
 | **Actualización en Tiempo Real** | ✅ Completo | SSE entre pestañas |
+| OCR de Receipts | ✅ Completo | Vision API + Tesseract fallback |
 | Unit Tests | 🚧 Pendiente | Sin cobertura |
 | Rate Limiting | 🚧 Pendiente | No implementado |
 
@@ -592,7 +593,175 @@ export const showSuccess = (message: string) => {
 
 ---
 
-## 9. Referencias
+## 9. Sistema OCR para Receipts
+
+### Visión General
+
+El sistema de OCR permite a los usuarios escanear receipts (comprobantes de compra) para extraer automáticamente el monto de la transacción.
+
+### Arquitectura
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      Frontend (Next.js)                          │
+│                                                                 │
+│  ┌─────────────────┐      ┌─────────────────────────────────┐   │
+│  │  Camera Capture │ ──▶  │  Tesseract.js (OCR Local)     │   │
+│  │  page.tsx       │      │  extractAmountFromImage()     │   │
+│  └────────┬────────┘      └─────────────────────────────────┘   │
+│           │                                                     │
+│           │ hasVisionApiKey                                     │
+│           ▼                                                     │
+│  ┌─────────────────┐      ┌─────────────────────────────────┐   │
+│  │  API Client     │ ──▶  │  Google Vision API (OCR Cloud) │   │
+│  │  api.processOcr │      │  Fallback on error              │   │
+│  └────────┬────────┘      └─────────────────────────────────┘   │
+│           │                                                     │
+└───────────┼─────────────────────────────────────────────────────┘
+            │
+            ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      Backend (NestJS)                            │
+│                                                                 │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │  OcrService.processImage()                              │    │
+│  │  - Valida API key del usuario                           │    │
+│  │  - Llama Google Vision API                              │    │
+│  │  - Extrae monto con regex                               │    │
+│  │  - Maneja errores: billing disabled → 402               │    │
+│  └─────────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Flujo de OCR
+
+```
+1. Usuario abre cámara en /transactions
+   │
+2. Captura foto del receipt
+   │
+3. Si el usuario tiene Vision API Key configurada:
+   │
+   a) Frontend llama POST /api/transactions/ocr
+      │
+   b) Backend llama Google Vision API
+      │
+   c) Si billing habilitado:
+      └─▶ Retorna monto extraído ✅
+      │
+   d) Si billing deshabilitado (402):
+      └─▶ Frontend hace fallback a Tesseract
+         │
+         └─▶ OCR local extrae monto ✅
+   │
+4. Si NO tiene Vision API Key:
+   │
+   └─▶ Usa Tesseract.js directamente (OCR local)
+```
+
+### Archivos Involucrados
+
+| Archivo | Propósito |
+|---------|-----------|
+| `frontend/src/lib/ocr.ts` | OCR local con Tesseract.js |
+| `frontend/src/lib/api.ts` | API client con `processOcr()` |
+| `frontend/src/app/transactions/page.tsx` | UI de cámara y captura |
+| `backend/src/modules/ocr/ocr.service.ts` | Integración Google Vision |
+| `backend/src/modules/ocr/ocr.module.ts` | Módulo NestJS |
+| `backend/src/modules/transactions/transactions.controller.ts` | Endpoint `/ocr` |
+
+### Manejo de Errores
+
+#### Antes (Problema)
+- Google Vision API devolvía 500 cuando billing no estaba habilitado
+- El frontend no manejaba el error y fallaba silenciosamente
+
+#### Después (Solución)
+- Backend devuelve **402 Payment Required** cuando billing deshabilitado
+- Frontend detecta el error y hace **fallback automático** a Tesseract
+- El usuario no nota la falla (experiencia seamless)
+
+```typescript
+// backend/src/modules/ocr/ocr.service.ts
+if (!response.ok) {
+  const errorJson = JSON.parse(errorBody);
+  if (errorJson.error?.details?.[0]?.reason === 'BILLING_DISABLED') {
+    throw new HttpException(
+      { message: 'Vision API billing not enabled', code: 'VISION_API_ERROR' },
+      HttpStatus.PAYMENT_REQUIRED  // 402
+    );
+  }
+}
+```
+
+```typescript
+// frontend/src/app/transactions/page.tsx
+try {
+  const result = await api.processOcr(imageData);
+  // Vision APIok
+} catch (err) {
+  console.error('Vision API error, falling back to local OCR:', err);
+  // Fallback a Tesseract
+  const result = await extractAmountFromImage(imageData);
+}
+```
+
+### Regex para Extracción de Montos
+
+El sistema usa múltiples patrones regex para detectar montos en receipts:
+
+```typescript
+// Patrones de prioridad alta (buscan "total")
+const totalPatterns = [
+  /(?:total|total\s+general|subtotal|importe|monto|amount|gran\s+total)[:\s]*\$?\s*([\d,.]+)/gi,
+  /([\d,.]+)\s*(?:total|total\s+general)/gi,
+];
+
+// Patrones de prioridad baja (buscan números con $ o decimales)
+const currencyPatterns = [
+  /\$[\d,.]+/g,
+  /[\d,]+\.\d{2}/g,  // Precios típicos: 14.537
+  /\d{4,}/g,         // Números grandes: 14537
+];
+```
+
+### Limpieza de OCR
+
+El texto extraído por Tesseract tiene ruido. Se limpia con:
+
+```typescript
+const cleanedText = text
+  .replace(/ssw/gi, '5')           // ssw → 5 (error común)
+  .replace(/S/g, '$')               // S → $
+  .replace(/\.\s+/g, '.')           // "14. 537" → "14.537"
+  .replace(/\$(\d+)\s+(\d{3})/g, '$$$1$2')  // "$14 537" → "$14537"
+  .replace(/\s+/g, '');             // Remover espacios restantes
+```
+
+### Requisitos para Google Vision API
+
+| Requisito | Descripción |
+|-----------|-------------|
+| **Proyecto GCP** | Crear proyecto en Google Cloud Console |
+| **Habilitar API** | Habilitar "Cloud Vision API" |
+| **Facturación** | Agregar tarjeta de crédito/débito al proyecto |
+| **API Key** | Crear credencial de tipo API Key |
+
+**Nota**: Sin facturación habilitada, Vision API devuelve 403 BILLING_DISABLED.
+
+### Comparación: Vision API vs Tesseract
+
+| Aspecto | Google Vision API | Tesseract.js |
+|---------|-------------------|--------------|
+| **Precisión** | Alta (ML entrenado) | Media (OCR básico) |
+| **Velocidad** | Rápido (en la nube) | Lento (en cliente) |
+| **Costo** | Gratis hasta 1000 requests/mes | Gratis (open source) |
+| **Offline** | No | Sí |
+| **Billing** | Requiere tarjeta | No requiere |
+
+---
+
+## 10. Referencias
 
 - [NestJS Documentation](https://docs.nestjs.com)
 - [Prisma Documentation](https://www.prisma.io/docs)
