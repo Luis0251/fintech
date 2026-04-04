@@ -1,12 +1,16 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
 import { TransactionsService } from './transactions.service';
+import { OcrService, VisionOCRResult } from '../ocr/ocr.service';
 import { CreateTransactionDto, UpdateTransactionDto } from './transactions.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @Controller('transactions')
 @UseGuards(JwtAuthGuard)
 export class TransactionsController {
-  constructor(private transactionsService: TransactionsService) {}
+  constructor(
+    private transactionsService: TransactionsService,
+    private ocrService: OcrService,
+  ) {}
 
   @Get()
   async findAll(
@@ -52,5 +56,11 @@ export class TransactionsController {
   @Delete(':id')
   async delete(@Param('id') id: string, @Request() req) {
     return this.transactionsService.delete(id, req.user.id);
+  }
+
+  @Post('ocr')
+  async processOcr(@Request() req, @Body() body: { imageData: string }): Promise<VisionOCRResult> {
+    const result = await this.ocrService.processImage(body.imageData, req.user.id);
+    return result;
   }
 }

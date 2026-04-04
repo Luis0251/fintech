@@ -8,6 +8,7 @@ import { BudgetsModule } from './modules/budgets/budgets.module';
 import { GoalsModule } from './modules/goals/goals.module';
 import { InsightsModule } from './modules/insights/insights.module';
 import { EventsModule } from './modules/events/events.module';
+import { OcrModule } from './modules/ocr/ocr.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { EventsModule } from './modules/events/events.module';
     BudgetsModule,
     GoalsModule,
     InsightsModule,
+    OcrModule,
   ],
 })
 export class AppModule {}

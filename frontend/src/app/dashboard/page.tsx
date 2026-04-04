@@ -14,10 +14,11 @@ import {
   LogOut,
   Menu,
   X,
+  Wallet,
+  Settings,
   DollarSign,
   TrendingUp,
-  TrendingDown,
-  Wallet
+  TrendingDown
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -45,6 +46,7 @@ const navigation = [
   { name: 'Metas', href: '/goals', icon: Target },
   { name: 'Insights', href: '/insights', icon: Lightbulb },
   { name: 'Chat IA', href: '/chat', icon: MessageSquare },
+  { name: 'Configuración', href: '/settings', icon: Settings },
 ];
 
 export default function DashboardPage() {

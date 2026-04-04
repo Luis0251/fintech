@@ -246,6 +246,32 @@ class ApiClient {
       method: 'DELETE',
     });
   }
+
+  // Vision API Key management
+  async saveVisionApiKey(visionApiKey: string) {
+    return this.request<{ success: boolean; message: string }>('/users/vision-api-key', {
+      method: 'PUT',
+      body: JSON.stringify({ visionApiKey }),
+    });
+  }
+
+  async getHasVisionApiKey() {
+    return this.request<{ hasVisionApiKey: boolean }>('/users/vision-api-key');
+  }
+
+  async deleteVisionApiKey() {
+    return this.request<{ success: boolean; message: string }>('/users/vision-api-key', {
+      method: 'DELETE',
+    });
+  }
+
+  // OCR processing
+  async processOcr(imageData: string) {
+    return this.request<{ amount: number | null; rawText: string }>('/transactions/ocr', {
+      method: 'POST',
+      body: JSON.stringify({ imageData }),
+    });
+  }
 }
 
 export const api = new ApiClient();

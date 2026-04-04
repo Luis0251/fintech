@@ -225,7 +225,7 @@ export const useDataStore = create<DataState>((set, get) => {
       eventSource.onmessage = (event) => {
         try {
           const data: ServerEvent = JSON.parse(event.data);
-          console.log('📡 SSE event received:', data);
+         
 
           // Handle different event types
           switch (data.type) {

@@ -26,6 +26,7 @@ export interface Transaction {
   description: string | null;
   date: Date;
   isRecurring: boolean;
+  attachmentUrl?: string | null;
   createdAt: Date;
   account?: Account;
 }

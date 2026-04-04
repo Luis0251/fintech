@@ -84,6 +84,7 @@ export class TransactionsService {
         description: dto.description,
         date: dto.date ? new Date(dto.date) : new Date(),
         isRecurring: dto.isRecurring || false,
+        attachmentUrl: dto.attachmentUrl || null,
       },
       include: { account: true },
     });

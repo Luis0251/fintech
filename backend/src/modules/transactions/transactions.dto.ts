@@ -25,6 +25,10 @@ export class CreateTransactionDto {
   @IsBoolean()
   @IsOptional()
   isRecurring?: boolean;
+
+  @IsString()
+  @IsOptional()
+  attachmentUrl?: string;
 }
 
 export class UpdateTransactionDto {
@@ -43,4 +47,8 @@ export class UpdateTransactionDto {
   @IsDateString()
   @IsOptional()
   date?: string;
+
+  @IsString()
+  @IsOptional()
+  attachmentUrl?: string;
 }

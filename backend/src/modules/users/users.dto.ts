@@ -8,6 +8,11 @@ export class SaveApiKeyDto {
   provider: 'gemini' | 'openai';
 }
 
+export class SaveVisionApiKeyDto {
+  @IsString()
+  visionApiKey: string;
+}
+
 export class UpdateProfileDto {
   @IsString()
   @IsOptional()

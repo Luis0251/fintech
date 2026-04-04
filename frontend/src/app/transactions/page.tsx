@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore, useDataStore } from '@/stores';
 import { api } from '@/lib/api';
+import { showError, showSuccess, showInfo, showWarning } from '@/lib/toast';
+import { extractAmountFromImage } from '@/lib/ocr';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -17,7 +19,11 @@ import {
   TrendingUp,
   TrendingDown,
   Calendar,
-  Trash2
+  Trash2,
+  Camera,
+  ImageIcon,
+  X,
+  Loader2
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -62,8 +68,82 @@ export default function TransactionsPage() {
     category: 'Food',
     description: '',
     date: new Date().toISOString().split('T')[0],
+    attachmentUrl: '',
   });
   const [error, setError] = useState('');
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [isProcessingOCR, setIsProcessingOCR] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
+  const [isCameraReady, setIsCameraReady] = useState(false);
+  const [hasVisionApiKey, setHasVisionApiKey] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  // Check if user has Vision API key configured
+  useEffect(() => {
+    api.getHasVisionApiKey().then(result => {
+      setHasVisionApiKey(result.hasVisionApiKey);
+    }).catch(() => {
+      setHasVisionApiKey(false);
+    });
+  }, []);
+
+  // Start camera when modal opens
+  useEffect(() => {
+    if (!showCamera) return;
+
+    let mounted = true;
+
+    const startVideo = async () => {
+      try {
+        // Try environment camera first (mobile), then fallback to any camera (desktop)
+        let stream: MediaStream;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: 'environment' } 
+          });
+        } catch {
+          // Fallback for desktop without environment camera
+          stream = await navigator.mediaDevices.getUserMedia({ 
+            video: true 
+          });
+        }
+        
+        if (!mounted) {
+          stream.getTracks().forEach(t => t.stop());
+          return;
+        }
+        
+        streamRef.current = stream;
+        
+        // Update state to trigger re-render with video element
+        setIsCameraReady(true);
+        
+        // Assign stream to video after a small delay to ensure element is rendered
+        setTimeout(() => {
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+          }
+        }, 200);
+      } catch (err) {
+        console.error('Camera error:', err);
+        if (mounted) {
+          showError('No se pudo acceder a la cámara');
+          setShowCamera(false);
+        }
+      }
+    };
+
+    startVideo();
+
+    return () => {
+      mounted = false;
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+    };
+  }, [showCamera]);
 
   // Obtener categorías válidas según el tipo seleccionado
   const getCategoriesForType = (type: string) => {
@@ -124,6 +204,7 @@ export default function TransactionsPage() {
       category: formData.category,
       description: formData.description,
       date: formData.date,
+      attachmentUrl: formData.attachmentUrl || undefined,
     };
     try {
       await api.createTransaction(payload);
@@ -138,9 +219,12 @@ export default function TransactionsPage() {
         category: 'Food',
         description: '',
         date: new Date().toISOString().split('T')[0],
+        attachmentUrl: '',
       });
-    } catch (error: any) {
-      setError('Error: ' + error.message);
+      setError('');
+      showSuccess('Transacción creada');
+    } catch (err: any) {
+      setError(err.message);
     }
   };
 
@@ -163,6 +247,88 @@ export default function TransactionsPage() {
       startDate: newFilters.startDate,
       endDate: newFilters.endDate,
     });
+  };
+
+  // Camera functions
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment' } 
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+      setShowCamera(true);
+    } catch (err) {
+      showError('No se pudo acceder a la cámara');
+      console.error(err);
+    }
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current) {
+      const canvas = document.createElement('canvas');
+      canvas.width = videoRef.current.videoWidth;
+      canvas.height = videoRef.current.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(videoRef.current, 0, 0);
+        const imageData = canvas.toDataURL('image/jpeg');
+        setFormData({ ...formData, attachmentUrl: imageData });
+        
+        // Process with OCR - use Vision API if available, fallback to local
+        setIsProcessingOCR(true);
+        
+        const processOcr = async () => {
+          if (hasVisionApiKey) {
+            try {
+              const result = await api.processOcr(imageData);
+              console.log('=== OCR RESULT (Vision API) ===');
+              console.log('Amount:', result.amount);
+              console.log('Raw text:', result.rawText);
+              console.log('================================');
+              
+              if (result.amount) {
+                setFormData(prev => ({ ...prev, amount: result.amount?.toString() || '' }));
+                showInfo(`Monto detectado: $${result.amount.toLocaleString()}`);
+              } else {
+                showWarning('No se detectó monto en la imagen');
+              }
+              return;
+            } catch (err) {
+              console.error('Vision API error, falling back to local OCR:', err);
+            }
+          }
+          
+          // Fallback to local Tesseract OCR
+          const result = await extractAmountFromImage(imageData);
+          console.log('=== OCR RESULT (Local) ===');
+          console.log('Amount:', result.amount);
+          console.log('Confidence:', result.confidence);
+          console.log('Raw text:', result.rawText);
+          console.log('===========================');
+          
+          if (result.amount) {
+            setFormData(prev => ({ ...prev, amount: result.amount?.toString() || '' }));
+            showInfo(`Monto detectado: $${result.amount.toLocaleString()} (confianza: ${Math.round(result.confidence)}%)`);
+          } else {
+            showWarning('No se detectó monto en la imagen');
+          }
+        };
+        
+        processOcr().finally(() => setIsProcessingOCR(false));
+      }
+    }
+    stopCamera();
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    setShowCamera(false);
   };
 
   // Use real data from API - no mock fallback
@@ -307,6 +473,97 @@ export default function TransactionsPage() {
                       placeholder="Descripción opcional"
                     />
                   </div>
+                  <div className="md:col-span-2">
+                    <Label>Foto de Factura</Label>
+                    {formData.attachmentUrl ? (
+                      <div className="relative mt-2 border rounded-md p-2">
+                        <img 
+                          src={formData.attachmentUrl} 
+                          alt="Factura" 
+                          className="max-h-40 mx-auto rounded"
+                        />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          className="absolute top-1 right-1 h-6 w-6"
+                          onClick={() => setFormData({ ...formData, attachmentUrl: '' })}
+                        >
+                          <X className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2 mt-2">
+                        <button
+                          type="button"
+                          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 border border-dashed rounded-md cursor-pointer hover:bg-muted/50 transition-colors"
+                          onClick={startCamera}
+                          disabled={isProcessingOCR}
+                        >
+                          <Camera className="w-4 h-4" />
+                          <span className="text-sm">{isProcessingOCR ? 'Procesando...' : 'Cámara'}</span>
+                        </button>
+                        <label className="flex-1 flex items-center justify-center gap-2 px-4 py-2 border border-dashed rounded-md cursor-pointer hover:bg-muted/50 transition-colors">
+                          />
+                        </label>
+                        <label className="flex-1 flex items-center justify-center gap-2 px-4 py-2 border border-dashed rounded-md cursor-pointer hover:bg-muted/50 transition-colors">
+                          <ImageIcon className="w-4 h-4" />
+                          <span className="text-sm">{isProcessingOCR ? 'Procesando...' : 'Galería'}</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            disabled={isProcessingOCR}
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onload = async (event) => {
+                                  const imageData = event.target?.result as string;
+                                  setFormData({ ...formData, attachmentUrl: imageData });
+                                  
+                                  setIsProcessingOCR(true);
+                                  
+                                  // Use Vision API if available, fallback to local
+                                  if (hasVisionApiKey) {
+                                    try {
+                                      const result = await api.processOcr(imageData);
+                                      if (result.amount) {
+                                        setFormData(prev => ({ ...prev, amount: result.amount?.toString() || '' }));
+                                        showInfo(`Monto detectado: $${result.amount.toLocaleString()}`);
+                                      } else {
+                                        showWarning('No se detectó monto en la imagen');
+                                      }
+                                    } catch (err) {
+                                      console.error('Vision API error, falling back:', err);
+                                      // Fallback to local OCR
+                                      const result = await extractAmountFromImage(imageData);
+                                      if (result.amount) {
+                                        setFormData(prev => ({ ...prev, amount: result.amount?.toString() || '' }));
+                                        showInfo(`Monto detectado: $${result.amount.toLocaleString()} (confianza: ${Math.round(result.confidence)}%)`);
+                                      } else {
+                                        showWarning('No se detectó monto en la imagen');
+                                      }
+                                    }
+                                  } else {
+                                    const result = await extractAmountFromImage(imageData);
+                                    if (result.amount) {
+                                      setFormData(prev => ({ ...prev, amount: result.amount?.toString() || '' }));
+                                      showInfo(`Monto detectado: $${result.amount.toLocaleString()} (confianza: ${Math.round(result.confidence)}%)`);
+                                    } else {
+                                      showWarning('No se detectó monto en la imagen');
+                                    }
+                                  }
+                                  setIsProcessingOCR(false);
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                          />
+                        </label>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 {error && (
                   <div className="p-3 bg-red-50 border border-red-200 rounded-md text-red-600 text-sm">
@@ -320,6 +577,51 @@ export default function TransactionsPage() {
               </form>
             </CardContent>
           </Card>
+        )}
+
+        {/* Camera Modal */}
+        {showCamera && (
+          <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+            <div className="bg-background rounded-lg p-4 w-full max-w-md">
+              <div className="relative">
+                {!isCameraReady ? (
+                  <div className="w-full aspect-video bg-muted rounded-lg flex items-center justify-center">
+                    <p className="text-muted-foreground">Iniciando cámara...</p>
+                  </div>
+                ) : (
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full rounded-lg"
+                  />
+                )}
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="icon"
+                  className="absolute top-2 right-2"
+                  onClick={stopCamera}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+              <div className="flex gap-2 mt-4">
+                <Button 
+                  onClick={capturePhoto} 
+                  className="flex-1"
+                  disabled={!isCameraReady}
+                >
+                  <Camera className="w-4 h-4 mr-2" />
+                  Capturar
+                </Button>
+                <Button variant="outline" onClick={stopCamera} className="flex-1">
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Transactions List */}
@@ -342,6 +644,17 @@ export default function TransactionsPage() {
                         <span>{tx.category}</span>
                         <span>•</span>
                         <span>{new Date(tx.date).toLocaleDateString('es-AR')}</span>
+                        {tx.attachmentUrl && (
+                          <>
+                            <span>•</span>
+                            <button 
+                              className="flex items-center gap-1 text-primary hover:underline"
+                              onClick={() => setPreviewImage(tx.attachmentUrl)}
+                            >
+                              <Camera className="w-3 h-3" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -363,6 +676,30 @@ export default function TransactionsPage() {
           <Card className="p-12 text-center">
             <p className="text-muted-foreground">No hay transacciones. ¡Registrá tu primera transacción!</p>
           </Card>
+        )}
+
+        {/* Image Preview Modal */}
+        {previewImage && (
+          <div 
+            className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+            onClick={() => setPreviewImage(null)}
+          >
+            <div className="relative max-w-3xl max-h-[90vh]">
+              <img 
+                src={previewImage} 
+                alt="Factura" 
+                className="max-w-full max-h-[90vh] rounded-lg"
+              />
+              <Button
+                variant="secondary"
+                size="icon"
+                className="absolute top-2 right-2"
+                onClick={() => setPreviewImage(null)}
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
         )}
       </div>
     </div>

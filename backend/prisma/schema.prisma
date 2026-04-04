@@ -45,6 +45,7 @@ model User {
   password     String
   name         String?
   apiKey       String?      // Encrypted API key for AI (Gemini/OpenAI)
+  visionApiKey String?      // Encrypted API key for Google Vision OCR
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
   accounts     Account[]
@@ -71,17 +72,18 @@ model Account {
 }
 
 model Transaction {
-  id          String          @id @default(cuid())
-  accountId   String
-  amount      Float
-  type        TransactionType
-  category    String
-  description String?
-  date        DateTime        @default(now())
-  isRecurring Boolean         @default(false)
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-  account     Account         @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  id           String          @id @default(cuid())
+  accountId    String
+  amount       Float
+  type         TransactionType
+  category     String
+  description  String?
+  date         DateTime        @default(now())
+  isRecurring  Boolean         @default(false)
+  attachmentUrl String?        // URL de imagen adjunta (factura/recibo)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  account      Account         @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   @@index([accountId])
   @@index([date])
