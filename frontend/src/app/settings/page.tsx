@@ -102,6 +102,10 @@ export default function SettingsPage() {
       setHasAiKey(true);
       setAiApiKey('');
       showSuccess('API key de IA guardada correctamente');
+      
+      // Update store state so menu items appear
+      const store = useAuthStore.getState();
+      await store.checkApiKey();
     } catch (err: any) {
       showError('Error al guardar: ' + err.message);
     } finally {
@@ -117,6 +121,10 @@ export default function SettingsPage() {
       await api.deleteApiKey();
       setHasAiKey(false);
       showSuccess('API key de IA eliminada');
+      
+      // Update store state so menu items disappear
+      const store = useAuthStore.getState();
+      store.setHasApiKey(false);
     } catch (err: any) {
       showError('Error al eliminar: ' + err.message);
     } finally {

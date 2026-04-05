@@ -16,7 +16,7 @@
 | **ORM** | Prisma |
 | **Database** | PostgreSQL |
 | **Auth** | JWT (Passport) |
-| **IA** | Google Gemini API (preparado) |
+| **IA** | Gemini u OpenAI (API key del usuario) |
 | **Real-time** | Server-Sent Events (SSE) |
 
 ---
@@ -30,12 +30,15 @@
 | CRUD Cuentas | ✅ Completo | Multiple account types |
 | CRUD Presupuestos | ✅ Completo | Con alertas de uso |
 | CRUD Metas | ✅ Completo | Con contribuciones |
-| Insights + Chat IA | ✅ Completo | Google Gemini integrado |
+| Insights + Chat IA | ✅ Completo | Requiere API key de usuario (Gemini/OpenAI) |
 | Dashboard | ✅ Completo | Gráficos con Recharts |
 | **Actualización en Tiempo Real** | ✅ Completo | SSE entre pestañas |
-| OCR de Receipts | ✅ Completo | Vision API + Tesseract fallback |
+| **OCR de Receipts** | ✅ Completo | Vision API + Tesseract fallback + compresión de imágenes |
+| **Glassmorphism UI** | ✅ Completo | Diseño liquid glass con backdrop-filter |
+| **Dark Mode** | ✅ Completo | Toggle con Zustand persist |
+| **UI Login/Registro** | ✅ Completo | Estilos glassmorphism mejorados |
 | Unit Tests | 🚧 Pendiente | Sin cobertura |
-| Rate Limiting | 🚧 Pendiente | No implementado |
+| Rate Limiting | ✅ Completo | @nestjs/throttler global |
 
 ---
 
@@ -554,15 +557,15 @@ export const showSuccess = (message: string) => {
 | 2 | **Unit Tests** | No hay cobertura de tests | 🚧 Pendiente |
 | 3 | **Error Handling Global** | Los errores 500 no tienen manejo granular | ✅ Implementado |
 | 4 | **Toast Notifications** | Alerts nativos del navegador | ✅ Implementado |
+| 5 | **Rate Limiting** | No hay protección contra abuse | ✅ Implementado |
 
 ### Media Prioridad
 
 | # | Mejora | Problema Actual | Estado |
 |---|--------|-----------------|--------|
-| 4 | **Rate Limiting** | No hay protección contra abuse | 🚧 Pendiente |
-| 5 | **API Versioning** | Los endpoints no tienen versionado | 🚧 Pendiente |
-| 6 | **Caching con Redis** | Datos como stats se calculan cada request | 🚧 Pendiente |
-| 7 | **Logging Centralizado** | console.log en vez de Logger estruturado | 🚧 Pendiente |
+| 4 | **API Versioning** | Los endpoints no tienen versionado | 🚧 Pendiente |
+| 5 | **Caching con Redis** | Datos como stats se calculan cada request | 🚧 Pendiente |
+| 6 | **Logging Centralizado** | console.log en vez de Logger estruturado | 🚧 Pendiente |
 
 ### Baja Prioridad
 
@@ -570,7 +573,7 @@ export const showSuccess = (message: string) => {
 |---|--------|-----------------|--------|
 | 8 | **GraphQL** | REST puede ser limitante para queries complejos | 🚧 Pendiente |
 | 9 | **CQRS** | Lógica de lectura/escritura en el mismo servicio | 🚧 Pendiente |
-| 10 | **Dark Mode** | Solo hay un theme | 🚧 Pendiente |
+| 10 | **Dark Mode** | Solo hay un theme | ✅ Completado |
 
 ---
 
@@ -583,10 +586,10 @@ export const showSuccess = (message: string) => {
 - CORS configurado
 - ValidationPipe con whitelist
 - Prisma parameterized queries (inyección SQL prevenida)
+- Rate limiting global (@nestjs/throttler)
 
 ### Pendiente 🚧
 
-- Rate limiting en endpoints
 - HTTPS obligatorio en producción
 - Refresh tokens (actualmente solo access token)
 - Audit logging para transacciones financieras

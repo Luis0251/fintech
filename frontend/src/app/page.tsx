@@ -7,6 +7,7 @@ import { api } from '@/lib/api';
 import { DollarSign, Key, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 
 export default function Home() {
   const [isLogin, setIsLogin] = useState(true);
@@ -70,57 +71,60 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      <Card className="w-full max-w-md mx-4">
-        <CardHeader className="text-center">
-          <div className="mx-auto w-12 h-12 bg-primary rounded-xl flex items-center justify-center mb-4">
-            <DollarSign className="w-6 h-6 text-primary-foreground" />
+    <div className="min-h-screen flex items-center justify-center gradient-bg">
+      <Card variant="glass" className="w-full max-w-md mx-4">
+        <CardHeader className="text-center pb-2">
+          <div className="mx-auto w-16 h-16 glass-primary rounded-2xl flex items-center justify-center mb-4">
+            <DollarSign className="w-8 h-8 text-white" />
           </div>
-          <CardTitle className="text-2xl">Financial Copilot</CardTitle>
-          <p className="text-muted-foreground text-sm">
+          <CardTitle className="text-3xl font-bold">Financial Copilot</CardTitle>
+          <p className="text-muted-foreground text-sm mt-2">
             {isLogin ? 'Iniciá sesión para continuar' : 'Creá tu cuenta'}
           </p>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <CardContent className="pt-4">
+          <form onSubmit={handleSubmit} className="space-y-6">
             {!isLogin && (
-              <div>
-                <label className="text-sm font-medium">Nombre</label>
-                <input
+              <div className="space-y-2">
+                <label className="text-sm font-medium ml-1 block mb-1">Nombre</label>
+                <Input
                   type="text"
+                  variant="glass"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full mt-1 px-3 py-2 border rounded-md"
                   placeholder="Tu nombre"
+                  className="h-12"
                 />
               </div>
             )}
-            <div>
-              <label className="text-sm font-medium">Email</label>
-              <input
+            <div className="space-y-2">
+              <label className="text-sm font-medium ml-1 block mb-1">Email</label>
+              <Input
                 type="email"
+                variant="glass"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full mt-1 px-3 py-2 border rounded-md"
                 placeholder="tu@email.com"
                 required
+                className="h-12"
               />
             </div>
-            <div>
-              <label className="text-sm font-medium">Contraseña</label>
-              <input
+            <div className="space-y-2">
+              <label className="text-sm font-medium ml-1 block mb-1">Contraseña</label>
+              <Input
                 type="password"
+                variant="glass"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full mt-1 px-3 py-2 border rounded-md"
                 placeholder="••••••••"
                 required
+                className="h-12"
               />
             </div>
             
             {/* Optional API Key Field - Only show on register */}
             {!isLogin && (
-              <div className="border-t pt-4 mt-4">
+              <div className="border-t border-border/30 pt-5 mt-4">
                 <button
                   type="button"
                   onClick={() => setShowApiKey(!showApiKey)}
@@ -131,13 +135,13 @@ export default function Home() {
                 </button>
                 
                 {showApiKey && (
-                  <div className="mt-3 space-y-3">
+                  <div className="mt-4 space-y-4 p-4 glass-card rounded-xl">
                     <div>
                       <label className="text-sm font-medium">Proveedor de IA</label>
                       <select
                         value={provider}
                         onChange={(e) => setProvider(e.target.value as 'gemini' | 'openai')}
-                        className="w-full mt-1 px-3 py-2 border rounded-md"
+                        className="w-full mt-1 px-3 py-2 glass-input rounded-xl bg-transparent"
                       >
                         <option value="gemini">Google Gemini</option>
                         <option value="openai">OpenAI</option>
@@ -147,14 +151,15 @@ export default function Home() {
                       <label className="text-sm font-medium">
                         {provider === 'gemini' ? 'Google Gemini API Key' : 'OpenAI API Key'}
                       </label>
-                      <input
+                      <Input
                         type="password"
+                        variant="glass"
                         value={apiKey}
                         onChange={(e) => setApiKey(e.target.value)}
-                        className="w-full mt-1 px-3 py-2 border rounded-md"
                         placeholder={provider === 'gemini' ? 'AIza...' : 'sk-...'}
+                        className="h-11"
                       />
-                      <p className="text-xs text-muted-foreground mt-1">
+                      <p className="text-xs text-muted-foreground mt-2">
                         {provider === 'gemini' 
                           ? 'Obtenela en: https://aistudio.google.com/app/apikey'
                           : 'Obtenela en: https://platform.openai.com/api-keys'
@@ -163,24 +168,28 @@ export default function Home() {
                     </div>
                   </div>
                 )}
-                <p className="text-xs text-muted-foreground mt-2">
+                <p className="text-xs text-muted-foreground mt-3 ml-1">
                   Si no agregás una key, las funciones de IA no estarán disponibles.
                 </p>
               </div>
             )}
             
-            {error && <p className="text-red-500 text-sm">{error}</p>}
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
+            {error && (
+              <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-500 text-sm">
+                {error}
+              </div>
+            )}
+            <Button type="submit" variant="glass-primary" className="w-full h-12 text-base" disabled={isSubmitting}>
               {isSubmitting ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Loader2 className="w-5 h-5 animate-spin" />
               ) : isLogin ? 'Iniciar Sesión' : 'Crear Cuenta'}
             </Button>
           </form>
-          <p className="text-center mt-4 text-sm text-muted-foreground">
+          <p className="text-center mt-6 text-sm text-muted-foreground">
             {isLogin ? '¿No tenés cuenta?' : '¿Ya tenés cuenta?'}{' '}
             <button
               onClick={() => setIsLogin(!isLogin)}
-              className="text-primary hover:underline"
+              className="text-primary font-medium hover:underline"
             >
               {isLogin ? 'Crear cuenta' : 'Iniciar sesión'}
             </button>

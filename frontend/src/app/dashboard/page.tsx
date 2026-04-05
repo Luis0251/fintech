@@ -18,9 +18,12 @@ import {
   Settings,
   DollarSign,
   TrendingUp,
-  TrendingDown
+  TrendingDown,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useTheme } from '@/lib/theme-store';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { 
@@ -52,6 +55,7 @@ const navigation = [
 export default function DashboardPage() {
   const { logout, hasApiKey } = useAuthStore();
   const { accounts, transactions, budgets, goals, insights, stats, balance, fetchAll, isLoading, connectSSE, disconnectSSE, sseConnected } = useDataStore();
+  const { theme, toggleTheme } = useTheme();
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -138,11 +142,11 @@ export default function DashboardPage() {
       </div>
 
       {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-40 w-64 bg-card border-r transform transition-transform lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <div className={`fixed inset-y-0 left-0 z-40 w-64 glass-sidebar transform transition-transform lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-6 border-b">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center">
-              <DollarSign className="w-5 h-5 text-primary-foreground" />
+            <div className="w-10 h-10 glass-primary rounded-xl flex items-center justify-center">
+              <DollarSign className="w-5 h-5 text-white" />
             </div>
             <div>
               <h1 className="font-bold">Fintech</h1>
@@ -159,10 +163,10 @@ export default function DashboardPage() {
               <Link
                 key={item.name}
                 href={item.href}
-                className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${
                   isActive 
-                    ? 'bg-primary text-primary-foreground' 
-                    : 'hover:bg-muted text-muted-foreground hover:text-foreground'
+                    ? 'glass-nav-item active' 
+                    : 'glass-nav-item text-muted-foreground hover:text-foreground'
                 }`}
                 onClick={() => setSidebarOpen(false)}
               >
@@ -174,7 +178,7 @@ export default function DashboardPage() {
         </nav>
 
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t">
-          <Button variant="ghost" className="w-full justify-start" onClick={handleLogout}>
+          <Button variant="ghost" className="w-full justify-start glass-button" onClick={handleLogout}>
             <LogOut className="w-5 h-5 mr-2" />
             Cerrar Sesión
           </Button>
@@ -183,63 +187,73 @@ export default function DashboardPage() {
 
       {/* Main content */}
       <div className="lg:ml-64 p-6 pt-16 lg:pt-6">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground">Resumen de tus finanzas</p>
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold">Dashboard</h1>
+            <p className="text-muted-foreground">Resumen de tus finanzas</p>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleTheme}
+            className="glass-button rounded-full"
+          >
+            {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+          </Button>
         </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <Card>
+          <Card variant="glass">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Balance Total</p>
                   <p className="text-2xl font-bold">${formatNumber(mockStats.totalBalance)}</p>
                 </div>
-                <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                <div className="w-12 h-12 glass-icon rounded-full flex items-center justify-center">
                   <DollarSign className="w-6 h-6 text-primary" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card variant="glass">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Ingresos del Mes</p>
                   <p className="text-2xl font-bold text-green-600">+${formatNumber(mockStats.monthlyIncome)}</p>
                 </div>
-                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                <div className="w-12 h-12 bg-green-100/50 backdrop-blur-sm rounded-full flex items-center justify-center">
                   <TrendingUp className="w-6 h-6 text-green-600" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card variant="glass">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Gastos del Mes</p>
                   <p className="text-2xl font-bold text-red-600">-${formatNumber(mockStats.monthlyExpenses)}</p>
                 </div>
-                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                <div className="w-12 h-12 bg-red-100/50 backdrop-blur-sm rounded-full flex items-center justify-center">
                   <TrendingDown className="w-6 h-6 text-red-600" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card variant="glass">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Tasa de Ahorro</p>
                   <p className="text-2xl font-bold text-blue-600">{mockStats.savingsRate}%</p>
                 </div>
-                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                <div className="w-12 h-12 bg-blue-100/50 backdrop-blur-sm rounded-full flex items-center justify-center">
                   <Target className="w-6 h-6 text-blue-600" />
                 </div>
               </div>
@@ -249,7 +263,7 @@ export default function DashboardPage() {
 
         {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <Card>
+          <Card variant="glass">
             <CardHeader>
               <CardTitle>Gastos por Categoría</CardTitle>
             </CardHeader>
@@ -277,7 +291,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card variant="glass">
             <CardHeader>
               <CardTitle>Ingresos vs Gastos</CardTitle>
             </CardHeader>
@@ -298,7 +312,7 @@ export default function DashboardPage() {
 
         {/* Budget Progress */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <Card>
+          <Card variant="glass">
             <CardHeader>
               <CardTitle>Presupuestos</CardTitle>
             </CardHeader>
@@ -325,7 +339,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card variant="glass">
             <CardHeader>
               <CardTitle>Metas de Ahorro</CardTitle>
             </CardHeader>

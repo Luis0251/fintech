@@ -6,6 +6,7 @@ import { useAuthStore, useDataStore } from '@/stores';
 import { api } from '@/lib/api';
 import { showError, showSuccess, showInfo, showWarning } from '@/lib/toast';
 import { extractAmountFromImage } from '@/lib/ocr';
+import { compressImage, estimateBase64Size } from '@/lib/image-compressor';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -274,50 +275,57 @@ export default function TransactionsPage() {
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.drawImage(videoRef.current, 0, 0);
-        const imageData = canvas.toDataURL('image/jpeg');
-        setFormData({ ...formData, attachmentUrl: imageData });
+        const rawImageData = canvas.toDataURL('image/jpeg');
         
-        // Process with OCR - use Vision API if available, fallback to local
-        setIsProcessingOCR(true);
-        
-        const processOcr = async () => {
-          if (hasVisionApiKey) {
-            try {
-              const result = await api.processOcr(imageData);
-              console.log('=== OCR RESULT (Vision API) ===');
-              console.log('Amount:', result.amount);
-              console.log('Raw text:', result.rawText);
-              console.log('================================');
-              
-              if (result.amount) {
-                setFormData(prev => ({ ...prev, amount: result.amount?.toString() || '' }));
-                showInfo(`Monto detectado: $${result.amount.toLocaleString()}`);
-              } else {
-                showWarning('No se detectó monto en la imagen');
+        compressImage(rawImageData, 800, 800, 0.7).then((compressedImage) => {
+          const originalSize = estimateBase64Size(rawImageData);
+          const compressedSize = estimateBase64Size(compressedImage);
+          console.log(`Image compressed: ${(originalSize / 1024).toFixed(1)}KB → ${(compressedSize / 1024).toFixed(1)}KB (${Math.round((compressedSize / originalSize) * 100)}%)`);
+          
+          setFormData({ ...formData, attachmentUrl: compressedImage });
+          
+          // Process with OCR - use Vision API if available, fallback to local
+          setIsProcessingOCR(true);
+          
+          const processOcr = async () => {
+            if (hasVisionApiKey) {
+              try {
+                const result = await api.processOcr(compressedImage);
+                console.log('=== OCR RESULT (Vision API) ===');
+                console.log('Amount:', result.amount);
+                console.log('Raw text:', result.rawText);
+                console.log('================================');
+                
+                if (result.amount) {
+                  setFormData(prev => ({ ...prev, amount: result.amount?.toString() || '' }));
+                  showInfo(`Monto detectado: $${result.amount.toLocaleString()}`);
+                } else {
+                  showWarning('No se detectó monto en la imagen');
+                }
+                return;
+              } catch (err) {
+                console.error('Vision API error, falling back to local OCR:', err);
               }
-              return;
-            } catch (err) {
-              console.error('Vision API error, falling back to local OCR:', err);
             }
-          }
+            
+            // Fallback to local Tesseract OCR
+            const result = await extractAmountFromImage(compressedImage);
+            console.log('=== OCR RESULT (Local) ===');
+            console.log('Amount:', result.amount);
+            console.log('Confidence:', result.confidence);
+            console.log('Raw text:', result.rawText);
+            console.log('===========================');
+            
+            if (result.amount) {
+              setFormData(prev => ({ ...prev, amount: result.amount?.toString() || '' }));
+              showInfo(`Monto detectado: $${result.amount.toLocaleString()} (confianza: ${Math.round(result.confidence)}%)`);
+            } else {
+              showWarning('No se detectó monto en la imagen');
+            }
+          };
           
-          // Fallback to local Tesseract OCR
-          const result = await extractAmountFromImage(imageData);
-          console.log('=== OCR RESULT (Local) ===');
-          console.log('Amount:', result.amount);
-          console.log('Confidence:', result.confidence);
-          console.log('Raw text:', result.rawText);
-          console.log('===========================');
-          
-          if (result.amount) {
-            setFormData(prev => ({ ...prev, amount: result.amount?.toString() || '' }));
-            showInfo(`Monto detectado: $${result.amount.toLocaleString()} (confianza: ${Math.round(result.confidence)}%)`);
-          } else {
-            showWarning('No se detectó monto en la imagen');
-          }
-        };
-        
-        processOcr().finally(() => setIsProcessingOCR(false));
+          processOcr().finally(() => setIsProcessingOCR(false));
+        });
       }
     }
     stopCamera();
@@ -504,9 +512,6 @@ export default function TransactionsPage() {
                           <span className="text-sm">{isProcessingOCR ? 'Procesando...' : 'Cámara'}</span>
                         </button>
                         <label className="flex-1 flex items-center justify-center gap-2 px-4 py-2 border border-dashed rounded-md cursor-pointer hover:bg-muted/50 transition-colors">
-                          />
-                        </label>
-                        <label className="flex-1 flex items-center justify-center gap-2 px-4 py-2 border border-dashed rounded-md cursor-pointer hover:bg-muted/50 transition-colors">
                           <ImageIcon className="w-4 h-4" />
                           <span className="text-sm">{isProcessingOCR ? 'Procesando...' : 'Galería'}</span>
                           <input
@@ -519,15 +524,21 @@ export default function TransactionsPage() {
                               if (file) {
                                 const reader = new FileReader();
                                 reader.onload = async (event) => {
-                                  const imageData = event.target?.result as string;
-                                  setFormData({ ...formData, attachmentUrl: imageData });
+                                  const rawImageData = event.target?.result as string;
+                                  
+                                  const compressedImage = await compressImage(rawImageData, 800, 800, 0.7);
+                                  const originalSize = estimateBase64Size(rawImageData);
+                                  const compressedSize = estimateBase64Size(compressedImage);
+                                  console.log(`Image compressed: ${(originalSize / 1024).toFixed(1)}KB → ${(compressedSize / 1024).toFixed(1)}KB (${Math.round((compressedSize / originalSize) * 100)}%)`);
+                                  
+                                  setFormData({ ...formData, attachmentUrl: compressedImage });
                                   
                                   setIsProcessingOCR(true);
                                   
                                   // Use Vision API if available, fallback to local
                                   if (hasVisionApiKey) {
                                     try {
-                                      const result = await api.processOcr(imageData);
+                                      const result = await api.processOcr(compressedImage);
                                       if (result.amount) {
                                         setFormData(prev => ({ ...prev, amount: result.amount?.toString() || '' }));
                                         showInfo(`Monto detectado: $${result.amount.toLocaleString()}`);
@@ -537,7 +548,7 @@ export default function TransactionsPage() {
                                     } catch (err) {
                                       console.error('Vision API error, falling back:', err);
                                       // Fallback to local OCR
-                                      const result = await extractAmountFromImage(imageData);
+                                      const result = await extractAmountFromImage(compressedImage);
                                       if (result.amount) {
                                         setFormData(prev => ({ ...prev, amount: result.amount?.toString() || '' }));
                                         showInfo(`Monto detectado: $${result.amount.toLocaleString()} (confianza: ${Math.round(result.confidence)}%)`);
@@ -546,7 +557,7 @@ export default function TransactionsPage() {
                                       }
                                     }
                                   } else {
-                                    const result = await extractAmountFromImage(imageData);
+                                    const result = await extractAmountFromImage(compressedImage);
                                     if (result.amount) {
                                       setFormData(prev => ({ ...prev, amount: result.amount?.toString() || '' }));
                                       showInfo(`Monto detectado: $${result.amount.toLocaleString()} (confianza: ${Math.round(result.confidence)}%)`);

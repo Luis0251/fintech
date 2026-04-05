@@ -28,40 +28,23 @@ export class InsightsService {
   private genAI: GoogleGenerativeAI | null = null;
   private openAIClient: OpenAI | null = null;
   
-  // Fallback model keys from environment (for admin use)
-  private fallbackGenAI: GoogleGenerativeAI | null = null;
-  private fallbackOpenAIClient: OpenAI | null = null;
-
   constructor(private prisma: PrismaService) {
-    // Initialize fallback providers if API keys are available in env
-    const geminiKey = process.env.GEMINI_API_KEY;
-    const openaiKey = process.env.OPENAI_API_KEY;
-    
-    if (geminiKey) {
-      this.fallbackGenAI = new GoogleGenerativeAI(geminiKey);
-      this.logger.log('✅ Fallback Gemini AI initialized (from env)');
-    }
-    
-    if (openaiKey) {
-      this.fallbackOpenAIClient = new OpenAI({ apiKey: openaiKey });
-      this.logger.log('✅ Fallback OpenAI initialized (from env)');
-    }
+    // No fallback - users must provide their own API key
+    this.logger.log('AI features require user to provide their own API key');
   }
 
   /**
-   * Initialize AI clients with user's API key
+   * Initialize AI clients with user's API key only
    */
   private async initializeUserAI(userId: string): Promise<AIProvider> {
-    // Try to get user's API key from database
+    // Get user's API key from database
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { apiKey: true },
     });
 
     if (!user?.apiKey) {
-      // Check if fallback keys exist
-      if (this.fallbackGenAI) return 'gemini';
-      if (this.fallbackOpenAIClient) return 'openai';
+      // No API key - AI features not available
       return null;
     }
 
@@ -83,9 +66,6 @@ export class InsightsService {
       }
     }
 
-    // Fallback
-    if (this.fallbackGenAI) return 'gemini';
-    if (this.fallbackOpenAIClient) return 'openai';
     return null;
   }
 
@@ -337,7 +317,7 @@ Instrucciones:
 9. Usa emojis ocasionalmente para hacer la conversación más amena`;
 
     if (provider === 'gemini') {
-      const model = (this.genAI || this.fallbackGenAI)!.getGenerativeModel({ model: 'gemini-2.0-flash' });
+      const model = this.genAI!.getGenerativeModel({ model: 'gemini-2.0-flash' });
       
       const chat = model.startChat({
         history: [
@@ -351,9 +331,9 @@ Instrucciones:
       const result = await chat.sendMessage(message);
       return result.response.text();
     } else if (provider === 'openai') {
-      const client = this.openAIClient || this.fallbackOpenAIClient;
+      const client = this.openAIClient!;
       
-      const response = await client!.chat.completions.create({
+      const response = await client.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: systemPrompt },

@@ -6,31 +6,34 @@ interface AuthState {
   user: User | null;
   token: string | null;
   isLoading: boolean;
-  hasApiKey: boolean;
+  hasApiKey: boolean | null;  // null = no verificado, false = verificado sin key, true = tiene key
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name?: string) => Promise<void>;
   logout: () => void;
   checkAuth: () => Promise<void>;
   checkApiKey: () => Promise<void>;
+  setHasApiKey: (value: boolean) => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   token: null,
   isLoading: true,
-  hasApiKey: false,
+  hasApiKey: null,
   
   login: async (email, password) => {
     const { user, token } = await api.login(email, password);
     api.setToken(token);
     set({ user, token, isLoading: false });
     
-    // Check if user has API key
-    try {
-      const { hasApiKey } = await api.getHasApiKey();
-      set({ hasApiKey });
-    } catch {
-      set({ hasApiKey: false });
+    // Check if user has API key (solo si no está cacheado)
+    if (get().hasApiKey === null) {
+      try {
+        const { hasApiKey } = await api.getHasApiKey();
+        set({ hasApiKey });
+      } catch {
+        set({ hasApiKey: false });
+      }
     }
   },
   
@@ -42,7 +45,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   
   logout: () => {
     api.setToken(null);
-    set({ user: null, token: null, hasApiKey: false });
+    set({ user: null, token: null, hasApiKey: null });
   },
   
   checkAuth: async () => {
@@ -50,12 +53,14 @@ export const useAuthStore = create<AuthState>((set) => ({
     if (token) {
       set({ token, isLoading: false });
       
-      // Check if user has API key
-      try {
-        const { hasApiKey } = await api.getHasApiKey();
-        set({ hasApiKey });
-      } catch {
-        set({ hasApiKey: false });
+      // Check if user has API key (solo si no está cacheado)
+      if (get().hasApiKey === null) {
+        try {
+          const { hasApiKey } = await api.getHasApiKey();
+          set({ hasApiKey });
+        } catch {
+          set({ hasApiKey: false });
+        }
       }
     } else {
       set({ isLoading: false, hasApiKey: false });
@@ -63,6 +68,10 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
   
   checkApiKey: async () => {
+    // Si ya fue verificado (no es null), no volver a llamar
+    if (get().hasApiKey !== null) {
+      return;
+    }
     try {
       const { hasApiKey } = await api.getHasApiKey();
       set({ hasApiKey });
@@ -70,6 +79,8 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ hasApiKey: false });
     }
   },
+  
+  setHasApiKey: (value: boolean) => set({ hasApiKey: value }),
 }));
 
 interface ServerEvent {

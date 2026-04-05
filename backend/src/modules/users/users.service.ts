@@ -108,21 +108,13 @@ export class UsersService {
       select: { visionApiKey: true },
     });
 
-    console.log('=== getVisionApiKey DEBUG ===');
-    console.log('userId:', userId);
-    console.log('has visionApiKey in DB:', !!user?.visionApiKey);
-    console.log('===========================');
-
     if (!user?.visionApiKey) {
       return null;
     }
 
     try {
-      const decrypted = this.encryptionService.decrypt(user.visionApiKey);
-      console.log('=== Decryption SUCCESS ===');
-      return decrypted;
+      return this.encryptionService.decrypt(user.visionApiKey);
     } catch (err) {
-      console.error('=== Decryption FAILED ===', err);
       console.error('Error decrypting visionApiKey, clearing corrupted data:', err);
       await this.prisma.user.update({
         where: { id: userId },
